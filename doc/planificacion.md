@@ -1,9 +1,9 @@
 # Planificación — Módulo 20: Institutional Custody, Multisig & MPC Integration
 
-**Estado:** Fase **BOOT** ✅ · **THRESH → SOLV** ⏳.  
+**Estado:** Fases **BOOT → THRESH** ✅ · **ERC1271 → SOLV** ⏳.  
 **Regla de avance:** no se escribe código de una fase hasta: *“Autorizo Fase \<ID\>”*.  
-**Suite:** `forge test` → **3 PASS** (smoke BOOT).  
-**Docs sync:** 2026-09-15 — scaffold Foundry + interfaces base.  
+**Suite:** `forge test` → **19 PASS**.  
+**Docs sync:** 2026-09-15 — vault M-of-N + EIP-712 operativo.  
 **Nota de diseño:** las fases se organizan por **dominios de custody institucional** (no esquema genérico 0–7).
 
 ---
@@ -180,7 +180,7 @@ error Unauthorized();
 | Fase | Nombre | Estado | Autorización |
 |------|--------|--------|--------------|
 | **BOOT** | Scaffold Foundry + errores + interfaces base | ✅ Completada | ✅ Autorizada |
-| **THRESH** | Vault EIP-712 + motor M-of-N + sorting | ⏳ Pendiente | ❌ No autorizada |
+| **THRESH** | Vault EIP-712 + motor M-of-N + sorting | ✅ Completada | ✅ Autorizada |
 | **ERC1271** | `isValidSignature` + tests integración dApp-like | ⏳ Pendiente | ❌ No autorizada |
 | **SPEND** | Daily spending limit + reset por ventana | ⏳ Pendiente | ❌ No autorizada |
 | **GUARD** | Guards pluggable pre/post execution | ⏳ Pendiente | ❌ No autorizada |
@@ -188,7 +188,7 @@ error Unauthorized();
 | **SOLV** | Fuzz spending + invariantes + Deploy/gas + SWC-AUDIT | ⏳ Pendiente | ❌ No autorizada |
 
 **Cómo autorizar:** escribir exactamente  
-`Autorizo Fase THRESH` (o ERC1271 / SPEND / GUARD / LOCK / SOLV).
+`Autorizo Fase ERC1271` (o SPEND / GUARD / LOCK / SOLV).
 
 ---
 
@@ -218,7 +218,7 @@ error Unauthorized();
 
 ---
 
-### Fase THRESH — Threshold + EIP-712 execution ⏳
+### Fase THRESH — Threshold + EIP-712 execution ✅
 
 **Objetivo:** ejecutar llamadas con M-of-N firmas válidas sobre typed data.
 
@@ -231,6 +231,15 @@ error Unauthorized();
 **Criterio de salida:** tests de threshold + sorting/duplicate en verde.
 
 **Depende de:** BOOT.
+
+**Hecho (2026-09-15):**
+- `EIP712Custody.sol` — typehash `CustodyTransaction(to,value,data,nonce)`.
+- `ThresholdSignature.sol` — recover ECDSA (OZ), orden ascendente estricto, anti-duplicado, `count >= threshold`.
+- `CustodyVault.sol` — EIP-712 OZ + `ReentrancyGuardTransient`; `execTransaction` CEI; call failure → `ExecutionFailure` + `return false` (nonce consumido).
+- `execTransactionUnderLimit` stub → `Unauthorized` (Fase SPEND).
+- `MockTarget.sol`; tests `ThresholdExecution.t.sol` + `SignatureSorting.t.sol` + helper `CustodyTestBase`.
+- `Deploy.s.sol` despliega vault con `OWNER_1..3` / `THRESHOLD`.
+- **`forge test` → 19 PASS**.
 
 ---
 
@@ -310,8 +319,8 @@ error Unauthorized();
 ## 8. Checklist de aceptación global (v1)
 
 - [x] Scaffold Foundry + solc `0.8.24` (Fase BOOT)
-- [ ] Ejecución M-of-N sobre EIP-712 con sorting anti-duplicado
-- [ ] `InvalidThresholdSignature` / unsorted / duplicate cubiertos por tests
+- [x] Ejecución M-of-N sobre EIP-712 con sorting anti-duplicado
+- [x] `InvalidThresholdSignature` / unsorted / duplicate cubiertos por tests
 - [ ] ERC-1271 `isValidSignature` operativo
 - [ ] Daily spending limit con reset por ventana + fuzz
 - [ ] Guards pre/post execution
@@ -324,4 +333,4 @@ error Unauthorized();
 
 ## 9. Próximo paso
 
-Esperando autorización explícita: **`Autorizo Fase THRESH`**.
+Esperando autorización explícita: **`Autorizo Fase ERC1271`**.

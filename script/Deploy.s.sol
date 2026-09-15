@@ -3,7 +3,9 @@ pragma solidity 0.8.24;
 
 import {Script, console2} from "forge-std/Script.sol";
 
-/// @notice Stub de deploy (Fase BOOT). Se cablea el stack completo en fases posteriores.
+import {CustodyVault} from "../src/CustodyVault.sol";
+
+/// @notice Deploy CustodyVault (Fase THRESH). RecoveryTimelock / guards llegan en fases posteriores.
 contract Deploy is Script {
     function run() external {
         uint256 pk = vm.envOr("PRIVATE_KEY", uint256(0));
@@ -13,16 +15,53 @@ contract Deploy is Script {
         uint256 dailyLimit = vm.envOr("DAILY_LIMIT", uint256(1 ether));
         uint256 timelockDelay = vm.envOr("TIMELOCK_DELAY", uint256(1 days));
 
-        if (pk != 0) vm.startBroadcast(pk);
-        else vm.startBroadcast();
+        address ownerA = vm.envOr("OWNER_1", deployer);
+        address ownerB = vm.envOr("OWNER_2", address(0));
+        address ownerC = vm.envOr("OWNER_3", address(0));
 
-        // CustodyVault + RecoveryTimelock se despliegan a partir de Fase THRESH / LOCK.
+        address[] memory owners = _buildOwners(ownerA, ownerB, ownerC);
+        if (threshold > owners.length) {
+            threshold = owners.length;
+        }
+        if (threshold == 0) {
+            threshold = 1;
+        }
+
+        if (pk != 0) {
+            vm.startBroadcast(pk);
+        } else {
+            vm.startBroadcast();
+        }
+
+        CustodyVault vault = new CustodyVault(owners, threshold);
+
         vm.stopBroadcast();
 
         console2.log("Deployer", deployer);
-        console2.log("THRESHOLD (planned)", threshold);
-        console2.log("DAILY_LIMIT (planned)", dailyLimit);
-        console2.log("TIMELOCK_DELAY (planned)", timelockDelay);
-        console2.log("BOOT stub - no contracts deployed yet");
+        console2.log("CustodyVault", address(vault));
+        console2.log("THRESHOLD", threshold);
+        console2.log("OwnerCount", owners.length);
+        console2.log("DAILY_LIMIT (planned SPEND)", dailyLimit);
+        console2.log("TIMELOCK_DELAY (planned LOCK)", timelockDelay);
+    }
+
+    function _buildOwners(address a, address b, address c) internal pure returns (address[] memory owners) {
+        uint256 n = 1;
+        if (b != address(0)) {
+            ++n;
+        }
+        if (c != address(0)) {
+            ++n;
+        }
+        owners = new address[](n);
+        owners[0] = a;
+        uint256 i = 1;
+        if (b != address(0)) {
+            owners[i] = b;
+            ++i;
+        }
+        if (c != address(0)) {
+            owners[i] = c;
+        }
     }
 }
