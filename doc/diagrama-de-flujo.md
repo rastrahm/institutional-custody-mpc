@@ -1,44 +1,36 @@
 # Diagrama de flujo — Threshold, ERC-1271, spending, guards y recovery
 
-Flujos de decisión internos del protocolo de custodia (módulo 20, **diseño objetivo**).  
-**Sync:** 2026-09-15 · Fases **BOOT → SOLV** ⏳.
+Flujos de decisión internos del protocolo de custodia (módulo 20, **v1 implementado**).  
+**Sync:** 2026-09-15 · Fases **BOOT → SOLV** ✅ · 69 PASS.
 
 ## 1. execTransaction (quorum M-of-N)
 
 ```mermaid
 flowchart TD
-    A[Caller: execTransaction to,value,data,signatures] --> B{¿guard set?}
-    B -->|Sí| C[guard.checkTransaction]
-    C -->|reject| Z0[Revert GuardRejected]
-    C -->|ok| D[txHash = EIP-712 hash + nonce]
-    B -->|No| D
-    D --> E[Recover signers from signatures]
-    E --> F{¿sorted ascending by address?}
-    F -->|No| Z1[Revert UnsortedSignatures]
-    F -->|Sí| G{¿duplicados?}
-    G -->|Sí| Z2[Revert DuplicateSignature]
-    G -->|No| H{¿cada recover isOwner?}
-    H -->|No| Z3[Revert NotASigner / InvalidThresholdSignature]
-    H -->|Sí| I{¿count >= threshold?}
-    I -->|No| Z4[Revert InvalidThresholdSignature]
-    I -->|Sí| J[Effects: nonce++ ; opcional recordSpend]
-    J --> K["Interaction: to.call value data"]
-    K -->|fail| Z5[Revert ExecutionFailed]
-    K -->|ok| L{¿guard set?}
-    L -->|Sí| M[guard.checkAfterExecution]
-    M -->|reject| Z0
-    M -->|ok| N[Emit ExecutionSuccess]
-    L -->|No| N
-    N --> Ok([Fin — OK])
+    A[Caller: execTransaction] --> B{to != 0?}
+    B -->|No| Z0[Revert ZeroAddress]
+    B -->|Sí| C[txHash = EIP-712 + nonce]
+    C --> D[validateThreshold sorted unique owners]
+    D -->|fail| Z1[InvalidThreshold / Unsorted / Dup / NotASigner / Length]
+    D -->|ok| E[cache guard_]
+    E --> F{guard_ set?}
+    F -->|Sí| G[checkTransaction]
+    G -->|fail| Z2[Revert GuardRejected]
+    G -->|ok| H[nonce++]
+    F -->|No| H
+    H --> I["to.call value data"]
+    I -->|ok| J[Emit ExecutionSuccess]
+    I -->|fail| K[Emit ExecutionFailure success=false]
+    J --> L[checkAfterExecution guard_]
+    K --> L
+    L -->|fail| Z2
+    L -->|ok| Ok([return success])
     Z0 --> End([Fin — revert])
     Z1 --> End
     Z2 --> End
-    Z3 --> End
-    Z4 --> End
-    Z5 --> End
 ```
 
-> CEI: validar firmas → actualizar nonce/spent → call externo → post-guard.
+> Guard capturado **antes** del call: un `setGuard` en el mismo tx no afecta el post-check.
 
 ---
 
@@ -46,22 +38,24 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A[validateThreshold hash, signatures] --> B{¿signatures.length >= threshold?}
-    B -->|No| Z[InvalidThresholdSignature]
-    B -->|Sí| C[i = 0; prev = address 0]
-    C --> D[Recover signer_i via ECDSA]
-    D --> E{¿signer > prev?}
-    E -->|No igual| F[DuplicateSignature]
-    E -->|No menor| G[UnsortedSignatures]
-    E -->|Sí| H{¿isOwner signer?}
-    H -->|No| I[NotASigner / InvalidThresholdSignature]
-    H -->|Sí| J[prev = signer; i++]
-    J --> K{¿i == signatures.length?}
-    K -->|No| D
-    K -->|Sí| L{¿validCount >= threshold?}
-    L -->|No| Z
-    L -->|Sí| Ok([return — OK])
+    A[validateThreshold / isValidThreshold] --> B{length % 65 == 0 y > 0?}
+    B -->|No| E1[InvalidSignatureLength]
+    B -->|Sí| C{count >= threshold?}
+    C -->|No| E2[InvalidThresholdSignature]
+    C -->|Sí| D[Para cada firma: tryRecover r,s,v in-place]
+    D --> F{recover OK?}
+    F -->|No| E2
+    F -->|Sí| G{signer > previous?}
+    G -->|igual| E3[DuplicateSignature]
+    G -->|menor| E4[UnsortedSignatures]
+    G -->|Sí| H{isOwner?}
+    H -->|No| E5[NotASigner]
+    H -->|Sí| I{más firmas?}
+    I -->|Sí| D
+    I -->|No| Ok([OK — validate revert / isValid true])
 ```
+
+> `execTransaction` usa `validateThreshold` (revert). ERC-1271 usa `isValidThreshold` (bool).
 
 ---
 
@@ -69,54 +63,52 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A[isValidSignature hash, signature] --> B[Reutilizar motor threshold sobre hash]
-    B --> C{¿M-of-N válido + sorted + unique + owners?}
-    C -->|Sí| D["return 0x1626ba7e MAGICVALUE"]
-    C -->|No| E["return 0xffffffff"]
+    A[isValidSignature hash, signature] --> B[isValidThreshold mismo motor M-of-N]
+    B -->|true| C["return 0x1626ba7e"]
+    B -->|false| D["return 0xffffffff"]
 ```
 
-> Diseño provisional: no revertir en el path ERC-1271 (compatibilidad con consumidores que esperan magic value).  
-> Se confirma en Fase ERC1271.
+> No revierte en el path ERC-1271 (compatibilidad dApp).
 
 ---
 
-## 4. Daily spending — path under limit
+## 4. Daily spending — execTransactionUnderLimit
 
 ```mermaid
 flowchart TD
-    A[Owner: execTransactionUnderLimit to,value,data,sig] --> B{¿msg.sender / recover isOwner?}
-    B -->|No| Z0[Revert NotASigner]
-    B -->|Sí| C{¿nueva ventana? block.timestamp >= windowStart + WINDOW}
-    C -->|Sí| D[windowStart = now; spentInWindow = 0]
-    C -->|No| E[usar spentInWindow actual]
-    D --> E
-    E --> F{¿spent + value <= dailyLimit?}
-    F -->|No| Z1[Revert DailyLimitExceeded — usar quorum]
-    F -->|Sí| G[Effects: spent += value; nonce++]
+    A[UnderLimit to,value,data,sig65] --> B{sig length == 65?}
+    B -->|No| Z0[InvalidSignatureLength]
+    B -->|Sí| C[recover signer]
+    C --> D{isOwner?}
+    D -->|No| Z1[NotASigner]
+    D -->|Sí| E[checkCanSpend value]
+    E -->|fail| Z2[DailyLimitExceeded]
+    E -->|ok| F[Guard pre]
+    F -->|fail| Z3[GuardRejected]
+    F -->|ok| G[nonce++; recordSpend; emit DailySpend]
     G --> H[call externo]
-    H -->|fail| Z2[ExecutionFailed]
-    H -->|ok| Ok([Fin — OK])
-    Z0 --> End([Fin — revert])
+    H --> I[Guard post]
+    I --> Ok([return success])
+    Z0 --> End([revert])
     Z1 --> End
     Z2 --> End
+    Z3 --> End
 ```
 
-> El fuzz de Fase SPEND/SOLV debe cruzar fronteras de `WINDOW` (p. ej. 1 día) sin permitir bypass.
+> Solo `value` (ETH) cuenta al cap. `value == 0` no consume allowance. Quorum completo bypassea el cap.
 
 ---
 
-## 5. Guard lifecycle
+## 5. setGuard / setRecoveryTimelock
 
 ```mermaid
 flowchart TD
-    A[Admin/Timelock: setGuard] --> B[guard = newGuard]
-    B --> C[Próxima execTransaction]
-    C --> D[checkTransaction — pre]
-    D -->|fail| Z[GuardRejected]
-    D -->|ok| E[ejecutar call]
-    E --> F[checkAfterExecution — post]
-    F -->|fail| Z
-    F -->|ok| Ok([OK])
+    A[Multisig execTransaction → vault.setGuard / setRecoveryTimelock] --> B{msg.sender == vault?}
+    B -->|No| Z[Unauthorized]
+    B -->|Sí setGuard| C[guard = new; emit GuardChanged]
+    B -->|Sí setTimelock| D{ya bound?}
+    D -->|Sí| Z
+    D -->|No| E[recoveryTimelock = t; emit RecoveryTimelockSet]
 ```
 
 ---
@@ -125,18 +117,26 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A[Schedule add/remove/changeThreshold] --> B[Guardar operationId + eta = now + delay]
-    B --> C[Emit OperationScheduled]
-    C --> D{¿cancel?}
-    D -->|Sí| E[Borrar schedule]
-    D -->|No| F{¿block.timestamp >= eta?}
-    F -->|No| Z0[Revert TimelockNotReady]
-    F -->|Sí| G[Validar nuevo threshold vs ownerCount]
-    G -->|inválido| Z1[ThresholdTooHigh / TooLow]
-    G -->|ok| H[Aplicar cambio en CustodyVault]
-    H --> I[Emit OperationExecuted]
-    I --> Ok([Fin — OK])
-    E --> Cancelled([Cancelado])
-    Z0 --> End([Fin — revert])
-    Z1 --> End
+    A[Multisig → timelock.schedule opId, data, eta] --> B{msg.sender == vault?}
+    B -->|No| Z0[Unauthorized]
+    B -->|Sí| C{eta >= now + delay?}
+    C -->|No| Z1[TimelockNotReady]
+    C -->|Sí| D{op ya scheduled?}
+    D -->|Sí| Z2[OperationAlreadyScheduled]
+    D -->|No| E[Guardar eta + keccak data]
+
+    F[Anyone: execute opId, data] --> G{scheduled?}
+    G -->|No| Z3[OperationNotScheduled]
+    G -->|Sí| H{now >= eta?}
+    H -->|No| Z1
+    H -->|Sí| I{now <= eta + 14d?}
+    I -->|No| Z4[TimelockExpired]
+    I -->|Sí| J{keccak data match?}
+    J -->|No| Z0
+    J -->|Sí| K[vault.call data]
+    K -->|fail| Z5[ExecutionFailed]
+    K -->|ok| Ok([Owners/threshold actualizados])
 ```
+
+> `data` típico: `addOwnerWithThreshold` / `removeOwnerWithThreshold` / `changeThreshold`.  
+> Mutaciones del vault solo aceptan `msg.sender == recoveryTimelock`.

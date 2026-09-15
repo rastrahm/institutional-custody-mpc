@@ -1,9 +1,9 @@
 # Planificación — Módulo 20: Institutional Custody, Multisig & MPC Integration
 
-**Estado:** Fases **BOOT → LOCK** ✅ · **SOLV** ⏳.  
-**Regla de avance:** no se escribe código de una fase hasta: *“Autorizo Fase \<ID\>”*.  
-**Suite:** `forge test` → **60 PASS**.  
-**Docs sync:** 2026-09-15 — recovery timelock operativo.  
+**Estado:** Fases **BOOT → SOLV** ✅ (módulo v1 cerrado).  
+**Regla de avance:** la regla de autorización por fase aplicó durante la construcción; v1 ya no tiene fases pendientes.  
+**Suite:** `forge test` → **69 PASS**.  
+**Docs sync:** 2026-09-15 — SWC-AUDIT + GAS + invariantes + snapshot; **diagramas = código**.  
 **Nota de diseño:** las fases se organizan por **dominios de custody institucional** (no esquema genérico 0–7).
 
 ---
@@ -67,7 +67,7 @@ Stack: **Foundry + Solidity `0.8.24`**. Frontend Next.js queda **fuera de alcanc
 
 ---
 
-## 4. Arquitectura (diseño objetivo)
+## 4. Arquitectura (v1 implementado)
 
 ```
 20-institutional-custody-mpc/
@@ -84,12 +84,11 @@ Stack: **Foundry + Solidity `0.8.24`**. Frontend Next.js queda **fuera de alcanc
 │   ├── diagrama-de-clases.md
 │   ├── diagrama-de-flujo.md
 │   ├── flujograma.md
-│   ├── SWC-AUDIT.md          # Fase SOLV
-│   └── GAS.md                # Fase SOLV
+│   ├── SWC-AUDIT.md
+│   └── GAS.md
 ├── src/
 │   ├── CustodyVault.sol
-│   ├── SpendingLimit.sol          # o library / módulo interno
-│   ├── RecoveryTimelock.sol       # o módulo en vault
+│   ├── RecoveryTimelock.sol
 │   ├── interfaces/
 │   │   ├── ICustodyVault.sol
 │   │   ├── IERC1271.sol
@@ -97,14 +96,15 @@ Stack: **Foundry + Solidity `0.8.24`**. Frontend Next.js queda **fuera de alcanc
 │   │   └── IRecoveryTimelock.sol
 │   ├── libraries/
 │   │   ├── ThresholdSignature.sol
-│   │   └── EIP712Custody.sol
-│   ├── guards/
-│   │   └── (ej. DenyCallGuard.sol — lab mínimo)
+│   │   ├── EIP712Custody.sol
+│   │   └── SpendingLimit.sol
 │   ├── errors/
 │   │   └── CustodyErrors.sol
 │   └── mocks/
-│       └── MockGuard.sol
+│       ├── MockGuard.sol
+│       └── MockTarget.sol
 ├── test/
+│   ├── BootScaffold.t.sol
 │   ├── ThresholdExecution.t.sol
 │   ├── SignatureSorting.t.sol
 │   ├── ERC1271.t.sol
@@ -125,18 +125,18 @@ Stack: **Foundry + Solidity `0.8.24`**. Frontend Next.js queda **fuera de alcanc
 
 | Artefacto | Responsabilidad |
 |-----------|-----------------|
-| `CustodyVault` | Wallet multisig: propose/execute, EIP-712, nonce, value calls |
-| `ThresholdSignature` | Recupera signers, ordena, valida M-of-N |
-| `EIP712Custody` | Domain separator + typed hashes de transacciones |
-| ERC-1271 | Valida mensajes off-chain con el mismo umbral |
-| Spending limit | Cap diario; path “fast” bajo límite sin quorum completo (o con umbral reducido — definir en BOOT) |
-| `IGuard` | `checkTransaction` / `checkAfterExecution` |
-| Recovery Timelock | Schedule → delay → execute cambios de signers/threshold |
-| `CustodyErrors` | Custom errors del módulo |
+| `CustodyVault` | Multisig M-of-N, under-limit, ERC-1271, guard, bind timelock, mutations solo timelock |
+| `ThresholdSignature` | Recover in-place + orden + unique + ≥ M (validate / soft isValid) |
+| `EIP712Custody` | Struct hash `CustodyTransaction` |
+| `SpendingLimit` | Ventana rolling 1d; remaining / recordSpend |
+| `RecoveryTimelock` | schedule/cancel (vault); execute tras delay; grace 14d |
+| `IGuard` / `MockGuard` | Pre/post checks |
+| `CustodyErrors` | Custom errors |
+| `MockTarget` | Target lab de ejecución |
 
 ---
 
-## 5. Errores custom (módulo — diseño)
+## 5. Errores custom (módulo — implementados)
 
 ```solidity
 error InvalidThresholdSignature(); // obligatorio (.cursorrules)
@@ -157,11 +157,9 @@ error OperationNotScheduled();
 error OperationAlreadyScheduled();
 error ZeroAddress();
 error ZeroValue();
-error InvalidNonce();
+error InvalidNonce(); // reservado
 error Unauthorized();
 ```
-
-> Lista provisional; se ajustará en BOOT/THRESH según implementación concreta.
 
 ---
 
@@ -185,10 +183,9 @@ error Unauthorized();
 | **SPEND** | Daily spending limit + reset por ventana | ✅ Completada | ✅ Autorizada |
 | **GUARD** | Guards pluggable pre/post execution | ✅ Completada | ✅ Autorizada |
 | **LOCK** | Timelock recovery (signers / threshold) | ✅ Completada | ✅ Autorizada |
-| **SOLV** | Fuzz spending + invariantes + Deploy/gas + SWC-AUDIT | ⏳ Pendiente | ❌ No autorizada |
+| **SOLV** | Fuzz spending + invariantes + Deploy/gas + SWC-AUDIT | ✅ Completada | ✅ Autorizada |
 
-**Cómo autorizar:** escribir exactamente  
-`Autorizo Fase SOLV`.
+**Cómo autorizar:** módulo v1 cerrado; no hay fases pendientes.
 
 ---
 
@@ -331,7 +328,7 @@ error Unauthorized();
 
 ---
 
-### Fase SOLV — Hardening y cierre v1 ⏳
+### Fase SOLV — Hardening y cierre v1 ✅
 
 **Objetivo:** demostrar robustez y cerrar lab.
 
@@ -345,6 +342,14 @@ error Unauthorized();
 
 **Depende de:** BOOT + THRESH + ERC1271 + SPEND + GUARD + LOCK.
 
+**Hecho (2026-09-15):**
+- Invariantes: `test/invariant/Custody.invariant.t.sol` + `CustodyHandler` (threshold, spent, nonce).
+- Gas: `test/gas/CustodyVault.gas.t.sol` + `.gas-snapshot`.
+- Optimización: `ThresholdSignature` parse `r,s,v` in-place (assembly) → ≈−24 % en exec exact threshold.
+- `doc/SWC-AUDIT.md` (matriz SWC-100–136, estilo módulo 19), `doc/GAS.md`.
+- Fuzz spending ya en SPEND; Deploy cablea vault + timelock.
+- **`forge test` → 69 PASS**.
+
 ---
 
 ## 8. Checklist de aceptación global (v1)
@@ -356,12 +361,13 @@ error Unauthorized();
 - [x] Daily spending limit con reset por ventana + fuzz
 - [x] Guards pre/post execution
 - [x] Timelock para cambios de signers/threshold
-- [ ] CEI + custom errors + NatSpec + `.call` para ETH
-- [ ] Frontend Next.js **no** incluido (post-v1)
-- [ ] `doc/SWC-AUDIT.md` + gas snapshot + `Deploy.s.sol`
+- [x] CEI + custom errors + NatSpec + `.call` para ETH
+- [x] Frontend Next.js **no** incluido (post-v1)
+- [x] `doc/SWC-AUDIT.md` + gas snapshot + `Deploy.s.sol`
 
 ---
 
 ## 9. Próximo paso
 
-Esperando autorización explícita: **`Autorizo Fase SOLV`**.
+**Módulo v1 cerrado (Fases BOOT → SOLV ✅).**  
+Post-v1 opcional: frontend Next.js, timelock para `setGuard`/`setDailyLimit`, Account Abstraction (ERC-4337).

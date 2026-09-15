@@ -56,8 +56,7 @@ library ThresholdSignature {
 
         address previous;
         for (uint256 i; i < count; ++i) {
-            bytes memory signature = _signatureAt(signatures, i);
-            (address signer, ECDSA.RecoverError err,) = ECDSA.tryRecover(hash, signature);
+            (address signer, ECDSA.RecoverError err) = _tryRecoverAt(hash, signatures, i);
             if (err != ECDSA.RecoverError.NoError || signer == address(0)) {
                 return (false, CustodyErrors.InvalidThresholdSignature.selector);
             }
@@ -78,6 +77,25 @@ library ThresholdSignature {
         return (true, bytes4(0));
     }
 
+    /// @dev Parses packed `(r,s,v)` in-place (no per-signature `bytes` allocation).
+    function _tryRecoverAt(bytes32 hash, bytes memory signatures, uint256 index)
+        private
+        pure
+        returns (address signer, ECDSA.RecoverError err)
+    {
+        bytes32 r;
+        bytes32 s;
+        uint8 v;
+        // Parse packed (r,s,v) in-place — no per-signature bytes allocation.
+        assembly ("memory-safe") {
+            let offset := add(add(signatures, 0x20), mul(index, 65))
+            r := mload(offset)
+            s := mload(add(offset, 0x20))
+            v := byte(0, mload(add(offset, 0x40)))
+        }
+        (signer, err,) = ECDSA.tryRecover(hash, v, r, s);
+    }
+
     function _revertSelector(bytes4 errorSelector) private pure {
         if (errorSelector == CustodyErrors.InvalidSignatureLength.selector) {
             revert CustodyErrors.InvalidSignatureLength();
@@ -95,14 +113,5 @@ library ThresholdSignature {
             revert CustodyErrors.NotASigner();
         }
         revert CustodyErrors.InvalidThresholdSignature();
-    }
-
-    /// @notice Extracts the 65-byte signature at `index` from a packed signature blob.
-    function _signatureAt(bytes memory signatures, uint256 index) private pure returns (bytes memory signature) {
-        signature = new bytes(SIGNATURE_LENGTH);
-        uint256 offset = index * SIGNATURE_LENGTH;
-        for (uint256 j; j < SIGNATURE_LENGTH; ++j) {
-            signature[j] = signatures[offset + j];
-        }
     }
 }

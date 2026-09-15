@@ -1,0 +1,5 @@
+CustodyVaultGasTest:testGas_execTransactionUnderLimit() (gas: 130900)
+CustodyVaultGasTest:testGas_execTransaction_EthTransfer() (gas: 105293)
+CustodyVaultGasTest:testGas_execTransaction_ExactThreshold() (gas: 120011)
+CustodyVaultGasTest:testGas_execTransaction_ExcessSignatures() (gas: 129725)
+CustodyVaultGasTest:testGas_isValidSignature() (gas: 37698)
