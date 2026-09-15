@@ -2,11 +2,11 @@
 
 | Archivo | Contenido |
 |---------|-----------|
-| [planificacion.md](./planificacion.md) | Fases BOOT→THRESH ✅ · ERC1271→SOLV ⏳ |
+| [planificacion.md](./planificacion.md) | Fases BOOT→ERC1271 ✅ · SPEND→SOLV ⏳ |
 | [diagrama-de-clases.md](./diagrama-de-clases.md) | UML Mermaid (diseño objetivo) |
 | [diagrama-de-flujo.md](./diagrama-de-flujo.md) | Decisiones por función |
 | [flujograma.md](./flujograma.md) | Ciclo e2e propuesta → ejecución → límites → recovery |
 
-**Sync docs:** 2026-09-15 · Fases BOOT→THRESH ✅ · `forge test` → **19 PASS**.
+**Sync docs:** 2026-09-15 · Fases BOOT→ERC1271 ✅ · `forge test` → **28 PASS**.
 
 README del módulo: [`../README.md`](../README.md)

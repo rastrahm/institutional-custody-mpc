@@ -6,12 +6,17 @@ import {ReentrancyGuardTransient} from "@openzeppelin/contracts/utils/Reentrancy
 
 import {CustodyErrors} from "./errors/CustodyErrors.sol";
 import {ICustodyVault} from "./interfaces/ICustodyVault.sol";
+import {IERC1271} from "./interfaces/IERC1271.sol";
 import {EIP712Custody} from "./libraries/EIP712Custody.sol";
 import {ThresholdSignature} from "./libraries/ThresholdSignature.sol";
 
-/// @notice Institutional M-of-N custody vault with EIP-712 transaction authorization.
-/// @dev Phase THRESH: full quorum execution. Under-limit path and ERC-1271 arrive in later phases.
-contract CustodyVault is ICustodyVault, EIP712, ReentrancyGuardTransient {
+/// @notice Institutional M-of-N custody vault with EIP-712 transaction authorization and ERC-1271.
+/// @dev Phase THRESH+ERC1271: full quorum execution and off-chain message validation.
+contract CustodyVault is ICustodyVault, IERC1271, EIP712, ReentrancyGuardTransient {
+    /// @dev ERC-1271 magic value (`bytes4(keccak256("isValidSignature(bytes32,bytes)"))`).
+    bytes4 internal constant ERC1271_MAGICVALUE = 0x1626ba7e;
+    /// @dev ERC-1271 invalid marker returned instead of reverting (dApp compatibility).
+    bytes4 internal constant ERC1271_INVALID = 0xffffffff;
     /// @notice Emitted after a successful external call authorized by threshold signatures.
     event ExecutionSuccess(bytes32 indexed txHash, address indexed to, uint256 value);
 
@@ -119,6 +124,16 @@ contract CustodyVault is ICustodyVault, EIP712, ReentrancyGuardTransient {
         } else {
             emit ExecutionFailure(txHash, to, value);
         }
+    }
+
+    /// @inheritdoc IERC1271
+    /// @dev Reuses the same M-of-N sorted-owner rules as `execTransaction`. Invalid payloads return
+    ///      `0xffffffff` (no revert) so external dApps can branch on the magic value.
+    function isValidSignature(bytes32 hash, bytes memory signature) external view returns (bytes4 magicValue) {
+        if (ThresholdSignature.isValidThreshold(hash, signature, _threshold, _isOwner)) {
+            return ERC1271_MAGICVALUE;
+        }
+        return ERC1271_INVALID;
     }
 
     /// @inheritdoc ICustodyVault

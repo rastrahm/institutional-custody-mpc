@@ -1,9 +1,9 @@
 # Planificación — Módulo 20: Institutional Custody, Multisig & MPC Integration
 
-**Estado:** Fases **BOOT → THRESH** ✅ · **ERC1271 → SOLV** ⏳.  
+**Estado:** Fases **BOOT → ERC1271** ✅ · **SPEND → SOLV** ⏳.  
 **Regla de avance:** no se escribe código de una fase hasta: *“Autorizo Fase \<ID\>”*.  
-**Suite:** `forge test` → **19 PASS**.  
-**Docs sync:** 2026-09-15 — vault M-of-N + EIP-712 operativo.  
+**Suite:** `forge test` → **28 PASS**.  
+**Docs sync:** 2026-09-15 — ERC-1271 operativo sobre el motor threshold.  
 **Nota de diseño:** las fases se organizan por **dominios de custody institucional** (no esquema genérico 0–7).
 
 ---
@@ -181,14 +181,14 @@ error Unauthorized();
 |------|--------|--------|--------------|
 | **BOOT** | Scaffold Foundry + errores + interfaces base | ✅ Completada | ✅ Autorizada |
 | **THRESH** | Vault EIP-712 + motor M-of-N + sorting | ✅ Completada | ✅ Autorizada |
-| **ERC1271** | `isValidSignature` + tests integración dApp-like | ⏳ Pendiente | ❌ No autorizada |
+| **ERC1271** | `isValidSignature` + tests integración dApp-like | ✅ Completada | ✅ Autorizada |
 | **SPEND** | Daily spending limit + reset por ventana | ⏳ Pendiente | ❌ No autorizada |
 | **GUARD** | Guards pluggable pre/post execution | ⏳ Pendiente | ❌ No autorizada |
 | **LOCK** | Timelock recovery (signers / threshold) | ⏳ Pendiente | ❌ No autorizada |
 | **SOLV** | Fuzz spending + invariantes + Deploy/gas + SWC-AUDIT | ⏳ Pendiente | ❌ No autorizada |
 
 **Cómo autorizar:** escribir exactamente  
-`Autorizo Fase ERC1271` (o SPEND / GUARD / LOCK / SOLV).
+`Autorizo Fase SPEND` (o GUARD / LOCK / SOLV).
 
 ---
 
@@ -243,7 +243,7 @@ error Unauthorized();
 
 ---
 
-### Fase ERC1271 — Smart contract signature validation ⏳
+### Fase ERC1271 — Smart contract signature validation ✅
 
 **Objetivo:** dApps puedan validar mensajes firmados por el umbral del vault.
 
@@ -254,6 +254,13 @@ error Unauthorized();
 **Criterio de salida:** suite ERC-1271 en verde.
 
 **Depende de:** THRESH.
+
+**Hecho (2026-09-15):**
+- `ThresholdSignature.isValidThreshold` (soft-check) + `validateThreshold` (revert con error específico) comparten `_check`.
+- `CustodyVault.isValidSignature` → `0x1626ba7e` / `0xffffffff` (sin revert en el path ERC-1271).
+- Mismas reglas: M-of-N, sorted, unique, owners; aplica a hash arbitrario o digest EIP-712 del vault.
+- Tests: `test/ERC1271.t.sol` (exact, excess, typed hash, insufficient, unsorted, dup, non-signer, empty, wrong hash).
+- **`forge test` → 28 PASS**.
 
 ---
 
@@ -321,7 +328,7 @@ error Unauthorized();
 - [x] Scaffold Foundry + solc `0.8.24` (Fase BOOT)
 - [x] Ejecución M-of-N sobre EIP-712 con sorting anti-duplicado
 - [x] `InvalidThresholdSignature` / unsorted / duplicate cubiertos por tests
-- [ ] ERC-1271 `isValidSignature` operativo
+- [x] ERC-1271 `isValidSignature` operativo
 - [ ] Daily spending limit con reset por ventana + fuzz
 - [ ] Guards pre/post execution
 - [ ] Timelock para cambios de signers/threshold
@@ -333,4 +340,4 @@ error Unauthorized();
 
 ## 9. Próximo paso
 
-Esperando autorización explícita: **`Autorizo Fase ERC1271`**.
+Esperando autorización explícita: **`Autorizo Fase SPEND`**.
