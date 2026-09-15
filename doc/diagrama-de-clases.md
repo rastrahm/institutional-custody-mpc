@@ -1,10 +1,10 @@
 # Diagrama de clases — Institutional Custody, Multisig & MPC Integration
 
-Vista estructural del **diseño objetivo** (módulo 20).  
-**Sync:** 2026-09-15 · Fases **BOOT → SOLV** ⏳ · código aún no iniciado.
+Vista estructural alineada a la implementación v1 (módulo 20).  
+**Sync:** 2026-09-15 · Fases **BOOT → SOLV** ✅ · `forge test` → **69 PASS**.
 
 > **Estándar de referencia:** vault multisig estilo Safe + verificación threshold Secp256k1 on-chain, ERC-1271, spending limits y recovery con timelock.  
-> “MPC” en este módulo = firmas generadas off-chain (posiblemente vía MPC) y **verificadas** on-chain como M-of-N ECDSA; no hay circuito MPC en el contrato.
+> “MPC” = firmas off-chain (posiblemente vía MPC) **verificadas** on-chain como M-of-N ECDSA; no hay circuito MPC en el contrato.
 
 ## Diagrama (Mermaid)
 
@@ -17,10 +17,11 @@ classDiagram
         +getOwners() address[]
         +getThreshold() uint256
         +nonce() uint256
-        +execTransaction(to, value, data, signatures) bool
-        +execTransactionUnderLimit(to, value, data, signature) bool
         +domainSeparator() bytes32
         +getTransactionHash(to, value, data, nonce) bytes32
+        +execTransaction(to, value, data, signatures) bool
+        +execTransactionUnderLimit(to, value, data, signature) bool
+        +isOwner(account) bool
     }
 
     class IERC1271 {
@@ -30,16 +31,16 @@ classDiagram
 
     class IGuard {
         <<interface>>
-        +checkTransaction(to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, signatures, msgSender)
+        +checkTransaction(to, value, data, operation, msgSender)
         +checkAfterExecution(txHash, success)
     }
 
     class IRecoveryTimelock {
         <<interface>>
+        +delay() uint256
         +schedule(operationId, data, eta)
         +execute(operationId, data)
         +cancel(operationId)
-        +delay() uint256
     }
 
     class CustodyErrors {
@@ -48,66 +49,81 @@ classDiagram
         +UnsortedSignatures()
         +DuplicateSignature()
         +NotASigner()
+        +InvalidSignatureLength()
+        +ThresholdTooHigh()
+        +ThresholdTooLow()
+        +SignerAlreadyExists()
+        +SignerDoesNotExist()
         +DailyLimitExceeded()
+        +ExecutionFailed()
         +GuardRejected()
         +TimelockNotReady()
-        +ExecutionFailed()
+        +TimelockExpired()
+        +OperationNotScheduled()
+        +OperationAlreadyScheduled()
         +ZeroAddress()
-        +InvalidNonce()
+        +ZeroValue()
+        +Unauthorized()
     }
 
     class ThresholdSignature {
         <<library>>
-        +recoverSortedSigners(hash, signatures) address[]
-        +validateThreshold(owners, threshold, hash, signatures)
+        +SIGNATURE_LENGTH uint256
+        +validateThreshold(hash, signatures, threshold, owners)
+        +isValidThreshold(hash, signatures, threshold, owners) bool
     }
 
     class EIP712Custody {
         <<library>>
         +TRANSACTION_TYPEHASH bytes32
         +hashTransaction(to, value, data, nonce) bytes32
-        +toTypedDataHash(domainSeparator, structHash) bytes32
     }
 
-    class SpendingLimitModule {
-        +dailyLimit uint256
-        +spentInWindow uint256
-        +windowStart uint256
+    class SpendingLimit {
+        <<library>>
         +WINDOW uint256
-        +canSpend(amount) bool
-        +recordSpend(amount)
-        +setDailyLimit(newLimit)
-        +spentToday() uint256
+        +Data dailyLimit, spentInWindow, windowStart
+        +remaining(self) uint256
+        +spentToday(self) uint256
+        +checkCanSpend(self, amount)
+        +recordSpend(self, amount)
     }
 
     class CustodyVault {
-        +owners mapping
-        +ownerCount uint256
-        +threshold uint256
-        +nonce uint256
-        +guard address
+        +constructor(owners, threshold, dailyLimit, recoveryTimelock)
         +execTransaction(to, value, data, signatures) bool
         +execTransactionUnderLimit(to, value, data, signature) bool
         +isValidSignature(hash, signature) bytes4
         +setGuard(guard)
-        +isOwner(account) bool
+        +setRecoveryTimelock(timelock)
+        +addOwnerWithThreshold(owner, newThreshold)
+        +removeOwnerWithThreshold(owner, newThreshold)
+        +changeThreshold(newThreshold)
+        +dailyLimit() / spentInWindow() / remainingDailyLimit()
+        +guard() / recoveryTimelock()
     }
 
     class RecoveryTimelock {
+        +GRACE_PERIOD uint256
+        +vault CustodyVault
         +delay uint256
-        +scheduled mapping
-        +scheduleAddOwner(owner, newThreshold, eta)
-        +scheduleRemoveOwner(owner, newThreshold, eta)
-        +scheduleChangeThreshold(newThreshold, eta)
-        +execute(operationId)
+        +schedule(operationId, data, eta)
+        +execute(operationId, data)
         +cancel(operationId)
+        +getEta(operationId) uint256
     }
 
     class MockGuard {
         <<mock>>
-        +shouldReject bool
+        +rejectPre / rejectPost bool
         +checkTransaction(...)
         +checkAfterExecution(txHash, success)
+    }
+
+    class MockTarget {
+        <<mock>>
+        +ping()
+        +boom()
     }
 
     ICustodyVault <|.. CustodyVault
@@ -115,27 +131,28 @@ classDiagram
     IGuard <|.. MockGuard
     IRecoveryTimelock <|.. RecoveryTimelock
 
-    CustodyVault --> ThresholdSignature : valida M-of-N
+    CustodyVault --> ThresholdSignature : M-of-N / ERC-1271
     CustodyVault --> EIP712Custody : typed hash
-    CustodyVault --> SpendingLimitModule : cap diario
+    CustodyVault --> SpendingLimit : ventana diaria
     CustodyVault --> IGuard : pre/post
-    CustodyVault --> RecoveryTimelock : cambios custody
+    CustodyVault --> RecoveryTimelock : bind + mutations
     CustodyVault ..> CustodyErrors : reverts
-    RecoveryTimelock --> CustodyVault : muta owners/threshold
-    ThresholdSignature ..> CustodyErrors : InvalidThresholdSignature
+    RecoveryTimelock --> CustodyVault : call add/remove/threshold
+    ThresholdSignature ..> CustodyErrors : InvalidThreshold*
 ```
 
 ## Responsabilidades
 
 | Artefacto | Responsabilidad |
 |-----------|-----------------|
-| `CustodyVault` | Estado de owners/threshold; ejecución; ERC-1271; wiring de guard y límites |
-| `ThresholdSignature` | ECDSA recover + orden estricto + conteo ≥ M |
-| `EIP712Custody` | Domain + typehash de transacciones del vault |
-| `SpendingLimitModule` | Ventana temporal y acumulado de gasto |
-| `IGuard` / `MockGuard` | Política pre/post execution |
-| `RecoveryTimelock` | Delay para add/remove signer y change threshold |
+| `CustodyVault` | Owners/threshold/nonce; exec quorum + under-limit; ERC-1271; guard; bind timelock |
+| `ThresholdSignature` | ECDSA recover in-place + orden ascendente + unique owners ≥ M |
+| `EIP712Custody` | Typehash `CustodyTransaction(to,value,data,nonce)` |
+| `SpendingLimit` | Ventana rolling `1 days`; `remaining` / `recordSpend` |
+| `IGuard` / `MockGuard` | Política pre/post (lab) |
+| `RecoveryTimelock` | Delay + grace 14d; schedule/cancel solo vault; execute permissionless |
 | `CustodyErrors` | Custom errors del módulo |
+| `MockTarget` | Target de ejecución en tests |
 
 ## Modelo de permisos en ejecución
 
@@ -144,54 +161,55 @@ classDiagram
            │
            ▼
   ┌────────────────────┐
-  │ Guard pre-check?   │──fail──► GuardRejected
+  │ Threshold M-of-N   │──fail──► InvalidThreshold* / Unsorted / Dup / NotASigner
+  └─────────┬──────────┘
+            │ ok
+            ▼
+  ┌────────────────────┐
+  │ Guard pre (cached) │──fail──► GuardRejected
   └─────────┬──────────┘
             │ ok / sin guard
             ▼
   ┌────────────────────┐
-  │ Hash EIP-712+nonce │
-  └─────────┬──────────┘
-            ▼
-  ┌────────────────────┐
-  │ Threshold M-of-N   │──fail──► InvalidThresholdSignature
-  │ (sorted, unique)   │         Unsorted / Duplicate / NotASigner
-  └─────────┬──────────┘
-            │ ok
-            ▼
-  ┌────────────────────┐
   │ Effects: nonce++   │  (CEI)
-  │ record spend si aplica
   └─────────┬──────────┘
             ▼
   ┌────────────────────┐
-  │ Interaction: call  │──fail──► ExecutionFailed
+  │ to.call{value}     │──fail──► ExecutionFailure + return false
   └─────────┬──────────┘
-            │ ok
+            │ (success o false)
             ▼
-      Guard post-check
-      Emit ExecutionSuccess
+      Guard post (mismo guard cacheado)
+      Emit Success / Failure
 ```
+
+> Under-limit: 1 firma owner + `checkCanSpend(value)` + `recordSpend` en effects.  
+> Quorum completo **bypassea** el daily cap.  
+> Call fallido **no** revierte el outer (nonce/spend ya consumidos).
 
 ## Roles
 
 | Rol | Mecanismo | Acciones |
 |-----|-----------|----------|
-| Owner / Signer | lista on-chain | Firmar txs EIP-712; path bajo límite (según diseño SPEND) |
-| Executor | cualquiera (relayer) | Enviar `execTransaction` con firmas |
-| Guard | contrato `IGuard` | Rechazar/auditar pre/post |
-| Recovery admin | owners vía timelock | Schedule/execute cambios de custody |
-| dApp | ERC-1271 | `isValidSignature` contra el vault |
+| Owner / Signer | lista on-chain | Firmar EIP-712; under-limit con 1 firma |
+| Relayer | cualquiera | `execTransaction` / under-limit / `timelock.execute` |
+| Guard | `IGuard` vía multisig `setGuard` | Rechazar pre/post |
+| Recovery timelock | bound una vez | Mutar owners/threshold tras delay |
+| dApp | ERC-1271 | `isValidSignature` |
 
-## Errores custom (diseño)
+## Errores custom (implementados)
 
 | Error | Uso |
 |-------|-----|
-| `InvalidThresholdSignature()` | Umbral no alcanzado / firma inválida |
-| `UnsortedSignatures()` | Array no ordenado por address |
-| `DuplicateSignature()` | Misma address recuperada dos veces |
+| `InvalidThresholdSignature()` | Umbral / recover inválido |
+| `UnsortedSignatures()` / `DuplicateSignature()` | Orden / dup |
 | `NotASigner()` | Recover ∉ owners |
-| `DailyLimitExceeded()` | Path rápido supera cap de ventana |
+| `InvalidSignatureLength()` | Packed ≠ 65·N |
+| `DailyLimitExceeded()` | Under-limit sin allowance |
 | `GuardRejected()` | Guard pre/post falla |
-| `TimelockNotReady()` | Execute antes de `eta` |
-| `ExecutionFailed()` | `.call` externo falló |
-| `InvalidNonce()` | Hash con nonce incorrecto (si se valida off-hash) |
+| `TimelockNotReady()` / `TimelockExpired()` | Execute fuera de ventana |
+| `OperationNotScheduled()` / `AlreadyScheduled()` | Schedule/cancel/execute |
+| `ExecutionFailed()` | Timelock call al vault falló |
+| `Unauthorized()` | Self-call / timelock / data mismatch |
+| `ThresholdTooHigh/Low` / `SignerAlreadyExists/DoesNotExist` | Mutaciones custody |
+| `ZeroAddress()` / `ZeroValue()` | Inputs inválidos |
