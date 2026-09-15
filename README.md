@@ -2,8 +2,8 @@
 
 Vault de custodia institucional con consenso **M-of-N** sobre hashes **EIP-712**, verificación threshold Secp256k1, **ERC-1271**, límites diarios de gasto, guards pluggable y timelock de recovery. Solidity `0.8.24` + Foundry.
 
-**Estado:** Fases **BOOT → SPEND** ✅ · restantes ⏳.  
-**Suite:** `forge test` → **39 PASS**.  
+**Estado:** Fases **BOOT → GUARD** ✅ · restantes ⏳.  
+**Suite:** `forge test` → **48 PASS**.  
 **Docs sync:** 2026-09-15.
 
 ## Docs

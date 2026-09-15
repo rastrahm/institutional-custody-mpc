@@ -1,9 +1,9 @@
 # Planificación — Módulo 20: Institutional Custody, Multisig & MPC Integration
 
-**Estado:** Fases **BOOT → SPEND** ✅ · **GUARD → SOLV** ⏳.  
+**Estado:** Fases **BOOT → GUARD** ✅ · **LOCK → SOLV** ⏳.  
 **Regla de avance:** no se escribe código de una fase hasta: *“Autorizo Fase \<ID\>”*.  
-**Suite:** `forge test` → **39 PASS** (fuzz spending 1000 runs).  
-**Docs sync:** 2026-09-15 — daily spending limit + under-limit path.  
+**Suite:** `forge test` → **48 PASS**.  
+**Docs sync:** 2026-09-15 — guards pluggable pre/post.  
 **Nota de diseño:** las fases se organizan por **dominios de custody institucional** (no esquema genérico 0–7).
 
 ---
@@ -183,12 +183,12 @@ error Unauthorized();
 | **THRESH** | Vault EIP-712 + motor M-of-N + sorting | ✅ Completada | ✅ Autorizada |
 | **ERC1271** | `isValidSignature` + tests integración dApp-like | ✅ Completada | ✅ Autorizada |
 | **SPEND** | Daily spending limit + reset por ventana | ✅ Completada | ✅ Autorizada |
-| **GUARD** | Guards pluggable pre/post execution | ⏳ Pendiente | ❌ No autorizada |
+| **GUARD** | Guards pluggable pre/post execution | ✅ Completada | ✅ Autorizada |
 | **LOCK** | Timelock recovery (signers / threshold) | ⏳ Pendiente | ❌ No autorizada |
 | **SOLV** | Fuzz spending + invariantes + Deploy/gas + SWC-AUDIT | ⏳ Pendiente | ❌ No autorizada |
 
 **Cómo autorizar:** escribir exactamente  
-`Autorizo Fase GUARD` (o LOCK / SOLV).
+`Autorizo Fase LOCK` (o SOLV).
 
 ---
 
@@ -288,7 +288,7 @@ error Unauthorized();
 
 ---
 
-### Fase GUARD — Pluggable guards ⏳
+### Fase GUARD — Pluggable guards ✅
 
 **Objetivo:** hooks pre/post que puedan rechazar ejecución.
 
@@ -299,6 +299,13 @@ error Unauthorized();
 **Criterio de salida:** tests de guard en verde.
 
 **Depende de:** THRESH.
+
+**Hecho (2026-09-15):**
+- `setGuard` solo vía self-call (`msg.sender == address(this)` → multisig); EOA → `Unauthorized`.
+- Pre/post en `execTransaction` y `execTransactionUnderLimit`; guard capturado al inicio (post no usa el guard recién seteado en el mismo tx).
+- Fallo del guard → `GuardRejected` (try/catch); pre-reject no consume nonce/spend.
+- `MockGuard.sol` + tests `Guard.t.sol`.
+- **`forge test` → 48 PASS**.
 
 ---
 
@@ -339,7 +346,7 @@ error Unauthorized();
 - [x] `InvalidThresholdSignature` / unsorted / duplicate cubiertos por tests
 - [x] ERC-1271 `isValidSignature` operativo
 - [x] Daily spending limit con reset por ventana + fuzz
-- [ ] Guards pre/post execution
+- [x] Guards pre/post execution
 - [ ] Timelock para cambios de signers/threshold
 - [ ] CEI + custom errors + NatSpec + `.call` para ETH
 - [ ] Frontend Next.js **no** incluido (post-v1)
@@ -349,4 +356,4 @@ error Unauthorized();
 
 ## 9. Próximo paso
 
-Esperando autorización explícita: **`Autorizo Fase GUARD`**.
+Esperando autorización explícita: **`Autorizo Fase LOCK`**.
