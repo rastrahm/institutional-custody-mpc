@@ -86,14 +86,14 @@ contract ThresholdExecutionTest is CustodyTestBase {
         owners[0] = owner1;
         owners[1] = owner2;
         vm.expectRevert(CustodyErrors.ThresholdTooHigh.selector);
-        new CustodyVault(owners, 3, DEFAULT_DAILY_LIMIT);
+        new CustodyVault(owners, 3, DEFAULT_DAILY_LIMIT, address(0));
     }
 
     function test_Constructor_ThresholdZero_Reverts() public {
         address[] memory owners = new address[](1);
         owners[0] = owner1;
         vm.expectRevert(CustodyErrors.ThresholdTooLow.selector);
-        new CustodyVault(owners, 0, DEFAULT_DAILY_LIMIT);
+        new CustodyVault(owners, 0, DEFAULT_DAILY_LIMIT, address(0));
     }
 
     function test_Constructor_DuplicateOwner_Reverts() public {
@@ -101,6 +101,6 @@ contract ThresholdExecutionTest is CustodyTestBase {
         owners[0] = owner1;
         owners[1] = owner1;
         vm.expectRevert(CustodyErrors.SignerAlreadyExists.selector);
-        new CustodyVault(owners, 1, DEFAULT_DAILY_LIMIT);
+        new CustodyVault(owners, 1, DEFAULT_DAILY_LIMIT, address(0));
     }
 }

@@ -1,9 +1,9 @@
 # Planificación — Módulo 20: Institutional Custody, Multisig & MPC Integration
 
-**Estado:** Fases **BOOT → GUARD** ✅ · **LOCK → SOLV** ⏳.  
+**Estado:** Fases **BOOT → LOCK** ✅ · **SOLV** ⏳.  
 **Regla de avance:** no se escribe código de una fase hasta: *“Autorizo Fase \<ID\>”*.  
-**Suite:** `forge test` → **48 PASS**.  
-**Docs sync:** 2026-09-15 — guards pluggable pre/post.  
+**Suite:** `forge test` → **60 PASS**.  
+**Docs sync:** 2026-09-15 — recovery timelock operativo.  
 **Nota de diseño:** las fases se organizan por **dominios de custody institucional** (no esquema genérico 0–7).
 
 ---
@@ -184,11 +184,11 @@ error Unauthorized();
 | **ERC1271** | `isValidSignature` + tests integración dApp-like | ✅ Completada | ✅ Autorizada |
 | **SPEND** | Daily spending limit + reset por ventana | ✅ Completada | ✅ Autorizada |
 | **GUARD** | Guards pluggable pre/post execution | ✅ Completada | ✅ Autorizada |
-| **LOCK** | Timelock recovery (signers / threshold) | ⏳ Pendiente | ❌ No autorizada |
+| **LOCK** | Timelock recovery (signers / threshold) | ✅ Completada | ✅ Autorizada |
 | **SOLV** | Fuzz spending + invariantes + Deploy/gas + SWC-AUDIT | ⏳ Pendiente | ❌ No autorizada |
 
 **Cómo autorizar:** escribir exactamente  
-`Autorizo Fase LOCK` (o SOLV).
+`Autorizo Fase SOLV`.
 
 ---
 
@@ -309,7 +309,7 @@ error Unauthorized();
 
 ---
 
-### Fase LOCK — Emergency recovery Timelock ⏳
+### Fase LOCK — Emergency recovery Timelock ✅
 
 **Objetivo:** cambios sensibles (add/remove signer, change threshold) con delay.
 
@@ -320,6 +320,14 @@ error Unauthorized();
 **Criterio de salida:** tests de recovery/timelock en verde.
 
 **Depende de:** THRESH (idealmente tras GUARD si `setGuard` también va por timelock).
+
+**Hecho (2026-09-15):**
+- `RecoveryTimelock.sol` — `schedule`/`cancel` solo desde vault; `execute` permissionless tras `eta`; grace `14 days` → `TimelockExpired`.
+- Vault: `setRecoveryTimelock` (self-call, una vez); `addOwnerWithThreshold` / `removeOwnerWithThreshold` / `changeThreshold` solo timelock.
+- Constructor vault: 4º arg `recoveryTimelock_` (puede ser `0` y bind después).
+- Flujo: multisig → `timelock.schedule` → warp → `timelock.execute(data)`.
+- Tests: `RecoveryTimelock.t.sol` (threshold, add/remove, cancel, expiry, wrong data, unauthorized).
+- **`forge test` → 60 PASS**.
 
 ---
 
@@ -347,7 +355,7 @@ error Unauthorized();
 - [x] ERC-1271 `isValidSignature` operativo
 - [x] Daily spending limit con reset por ventana + fuzz
 - [x] Guards pre/post execution
-- [ ] Timelock para cambios de signers/threshold
+- [x] Timelock para cambios de signers/threshold
 - [ ] CEI + custom errors + NatSpec + `.call` para ETH
 - [ ] Frontend Next.js **no** incluido (post-v1)
 - [ ] `doc/SWC-AUDIT.md` + gas snapshot + `Deploy.s.sol`
@@ -356,4 +364,4 @@ error Unauthorized();
 
 ## 9. Próximo paso
 
-Esperando autorización explícita: **`Autorizo Fase LOCK`**.
+Esperando autorización explícita: **`Autorizo Fase SOLV`**.

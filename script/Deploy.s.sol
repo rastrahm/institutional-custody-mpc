@@ -4,8 +4,9 @@ pragma solidity 0.8.24;
 import {Script, console2} from "forge-std/Script.sol";
 
 import {CustodyVault} from "../src/CustodyVault.sol";
+import {RecoveryTimelock} from "../src/RecoveryTimelock.sol";
 
-/// @notice Deploy CustodyVault (Fase THRESH). RecoveryTimelock / guards llegan en fases posteriores.
+/// @notice Deploy CustodyVault + RecoveryTimelock and bind them (Fase LOCK).
 contract Deploy is Script {
     function run() external {
         uint256 pk = vm.envOr("PRIVATE_KEY", uint256(0));
@@ -33,16 +34,19 @@ contract Deploy is Script {
             vm.startBroadcast();
         }
 
-        CustodyVault vault = new CustodyVault(owners, threshold, dailyLimit);
+        CustodyVault vault = new CustodyVault(owners, threshold, dailyLimit, address(0));
+        RecoveryTimelock timelock = new RecoveryTimelock(address(vault), timelockDelay);
 
         vm.stopBroadcast();
 
         console2.log("Deployer", deployer);
         console2.log("CustodyVault", address(vault));
+        console2.log("RecoveryTimelock", address(timelock));
         console2.log("THRESHOLD", threshold);
         console2.log("OwnerCount", owners.length);
         console2.log("DAILY_LIMIT", dailyLimit);
-        console2.log("TIMELOCK_DELAY (planned LOCK)", timelockDelay);
+        console2.log("TIMELOCK_DELAY", timelockDelay);
+        console2.log("NOTE: bind via multisig setRecoveryTimelock(timelock)");
     }
 
     function _buildOwners(address a, address b, address c) internal pure returns (address[] memory owners) {
