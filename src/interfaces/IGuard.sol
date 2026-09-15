@@ -10,13 +10,7 @@ interface IGuard {
     /// @param data Calldata forwarded.
     /// @param operation Call type discriminator (0 = Call, 1 = DelegateCall) reserved for future use.
     /// @param msgSender Address that submitted the execution transaction.
-    function checkTransaction(
-        address to,
-        uint256 value,
-        bytes memory data,
-        uint8 operation,
-        address msgSender
-    ) external;
+    function checkTransaction(address to, uint256 value, bytes memory data, uint8 operation, address msgSender) external;
 
     /// @notice Called after the vault attempts an external call.
     /// @param txHash EIP-712 transaction hash that was executed.
