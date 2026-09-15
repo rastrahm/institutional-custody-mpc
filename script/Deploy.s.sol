@@ -33,7 +33,7 @@ contract Deploy is Script {
             vm.startBroadcast();
         }
 
-        CustodyVault vault = new CustodyVault(owners, threshold);
+        CustodyVault vault = new CustodyVault(owners, threshold, dailyLimit);
 
         vm.stopBroadcast();
 
@@ -41,7 +41,7 @@ contract Deploy is Script {
         console2.log("CustodyVault", address(vault));
         console2.log("THRESHOLD", threshold);
         console2.log("OwnerCount", owners.length);
-        console2.log("DAILY_LIMIT (planned SPEND)", dailyLimit);
+        console2.log("DAILY_LIMIT", dailyLimit);
         console2.log("TIMELOCK_DELAY (planned LOCK)", timelockDelay);
     }
 

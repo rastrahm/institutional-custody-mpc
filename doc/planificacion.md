@@ -1,9 +1,9 @@
 # Planificación — Módulo 20: Institutional Custody, Multisig & MPC Integration
 
-**Estado:** Fases **BOOT → ERC1271** ✅ · **SPEND → SOLV** ⏳.  
+**Estado:** Fases **BOOT → SPEND** ✅ · **GUARD → SOLV** ⏳.  
 **Regla de avance:** no se escribe código de una fase hasta: *“Autorizo Fase \<ID\>”*.  
-**Suite:** `forge test` → **28 PASS**.  
-**Docs sync:** 2026-09-15 — ERC-1271 operativo sobre el motor threshold.  
+**Suite:** `forge test` → **39 PASS** (fuzz spending 1000 runs).  
+**Docs sync:** 2026-09-15 — daily spending limit + under-limit path.  
 **Nota de diseño:** las fases se organizan por **dominios de custody institucional** (no esquema genérico 0–7).
 
 ---
@@ -182,13 +182,13 @@ error Unauthorized();
 | **BOOT** | Scaffold Foundry + errores + interfaces base | ✅ Completada | ✅ Autorizada |
 | **THRESH** | Vault EIP-712 + motor M-of-N + sorting | ✅ Completada | ✅ Autorizada |
 | **ERC1271** | `isValidSignature` + tests integración dApp-like | ✅ Completada | ✅ Autorizada |
-| **SPEND** | Daily spending limit + reset por ventana | ⏳ Pendiente | ❌ No autorizada |
+| **SPEND** | Daily spending limit + reset por ventana | ✅ Completada | ✅ Autorizada |
 | **GUARD** | Guards pluggable pre/post execution | ⏳ Pendiente | ❌ No autorizada |
 | **LOCK** | Timelock recovery (signers / threshold) | ⏳ Pendiente | ❌ No autorizada |
 | **SOLV** | Fuzz spending + invariantes + Deploy/gas + SWC-AUDIT | ⏳ Pendiente | ❌ No autorizada |
 
 **Cómo autorizar:** escribir exactamente  
-`Autorizo Fase SPEND` (o GUARD / LOCK / SOLV).
+`Autorizo Fase GUARD` (o LOCK / SOLV).
 
 ---
 
@@ -264,7 +264,7 @@ error Unauthorized();
 
 ---
 
-### Fase SPEND — Daily spending limit ⏳
+### Fase SPEND — Daily spending limit ✅
 
 **Objetivo:** cap operativo diario con reset por ventana temporal.
 
@@ -276,6 +276,15 @@ error Unauthorized();
 **Criterio de salida:** unit + fuzz de ventana en verde.
 
 **Depende de:** THRESH.
+
+**Hecho (2026-09-15):**
+- `SpendingLimit.sol` — ventana rolling `WINDOW = 1 days`; `remaining` / `recordSpend` / `checkCanSpend`.
+- `CustodyVault(owners, threshold, dailyLimit)` — getters `dailyLimit`, `spentInWindow`, `windowStart`, `remainingDailyLimit`.
+- **Under-limit path:** **1 firma ECDSA de cualquier owner**; solo el ETH `value` cuenta al cap; `value == 0` no consume allowance.
+- **Full quorum** (`execTransaction`) **bypassea** el daily cap (override institucional).
+- Exceso → `DailyLimitExceeded`; fallo del target aún consume nonce + spend (CEI).
+- Tests: `SpendingLimit.t.sol` + fuzz `test/fuzz/SpendingWindow.t.sol` (1000 runs).
+- **`forge test` → 39 PASS**.
 
 ---
 
@@ -329,7 +338,7 @@ error Unauthorized();
 - [x] Ejecución M-of-N sobre EIP-712 con sorting anti-duplicado
 - [x] `InvalidThresholdSignature` / unsorted / duplicate cubiertos por tests
 - [x] ERC-1271 `isValidSignature` operativo
-- [ ] Daily spending limit con reset por ventana + fuzz
+- [x] Daily spending limit con reset por ventana + fuzz
 - [ ] Guards pre/post execution
 - [ ] Timelock para cambios de signers/threshold
 - [ ] CEI + custom errors + NatSpec + `.call` para ETH
@@ -340,4 +349,4 @@ error Unauthorized();
 
 ## 9. Próximo paso
 
-Esperando autorización explícita: **`Autorizo Fase SPEND`**.
+Esperando autorización explícita: **`Autorizo Fase GUARD`**.

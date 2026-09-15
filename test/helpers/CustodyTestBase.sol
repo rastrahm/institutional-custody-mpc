@@ -21,6 +21,8 @@ abstract contract CustodyTestBase is Test {
     CustodyVault internal vault;
     MockTarget internal target;
 
+    uint256 internal constant DEFAULT_DAILY_LIMIT = 1 ether;
+
     function setUp() public virtual {
         owner1 = vm.addr(OWNER1_PK);
         owner2 = vm.addr(OWNER2_PK);
@@ -29,7 +31,7 @@ abstract contract CustodyTestBase is Test {
 
         // Ensure ascending address order for deterministic packing helpers when needed.
         address[] memory owners = _sortedOwners3();
-        vault = new CustodyVault(owners, 2);
+        vault = new CustodyVault(owners, 2, DEFAULT_DAILY_LIMIT);
         target = new MockTarget();
         vm.deal(address(vault), 10 ether);
     }
