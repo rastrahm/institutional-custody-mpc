@@ -1,0 +1,30 @@
+# .cursorrules — Module 20: Institutional Custody, Multisig & MPC Integration
+
+## MODULE OVERVIEW
+Focus on building institutional-grade wallet custody protocols, custom multi-signature vaults, off-chain MPC signature scheme verification (ERC-1271 / Secp256k1 threshold verification), daily spending limits, and emergency recovery timelocks using Foundry and Solidity 0.8.24.
+
+---
+
+## 1. TECHNICAL CONSTRAINTS & STACK
+
+- **Compiler Version:** Strictly `pragma solidity 0.8.24;` (no floating pragmas).
+- **Tooling:** Foundry (`forge` for multisig proposal flows, signature verification tests, and gas profiling).
+- **Standards:** ERC-1271 (`isValidSignature`), EIP-712 (Typed Structured Data Hashing), and OpenZeppelin ECDSA / Cryptography utils.
+
+---
+
+## 2. CODING & SECURITY RULES
+
+- **Threshold Signature Engine:** Implement strict M-of-N threshold verification over EIP-712 transaction hashes (`error InvalidThresholdSignature()`). Ensure signature array sorting to prevent duplicate signature replay within the same execution payload.
+- **ERC-1271 Signature Validation:** Implement `isValidSignature(bytes32 _hash, bytes memory _signature)` to allow smart contract custody wallets to sign EIP-712 messages for external dApps/DeFi protocols seamlessly.
+- **Daily Spending Limit & Allowance Engine:** Enforce automatic spending caps that reset windowed by timestamp without requiring full multisig consensus for low-value operational transactions.
+- **Emergency Recovery & Guard Modules:** Support pluggable Guard modules (pre/post execution checks) and a delayed Timelock for modifying signer thresholds or adding/removing custody keys.
+
+---
+
+## 3. TESTING REQUIREMENTS
+
+- **Threshold Execution Tests:** Test valid M-of-N proposal execution with exact and excess valid signatures.
+- **Signature Sorting & Duplicate Rejection Tests:** Assert explicit revert when submitting unsorted, invalid, or duplicate signature arrays.
+- **ERC-1271 Integration Tests:** Verify that off-chain messages signed by threshold keys validate successfully against the smart contract vault's `isValidSignature`.
+- **Spending Limit Reset Fuzzing:** Fuzz daily transaction volume across timestamp boundaries to ensure limit tracking cannot be bypassed via precise block time manipulation.
