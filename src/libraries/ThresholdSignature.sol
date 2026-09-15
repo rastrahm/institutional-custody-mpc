@@ -7,7 +7,7 @@ import {CustodyErrors} from "../errors/CustodyErrors.sol";
 
 /// @notice M-of-N ECDSA threshold validation with strict ascending signer order.
 library ThresholdSignature {
-    uint256 internal constant SIGNATURE_LENGTH = 65;
+    uint256 public constant SIGNATURE_LENGTH = 65;
 
     /// @notice Validates that `signatures` contains at least `threshold` unique owner signatures, sorted ascending.
     /// @dev All provided signatures are checked (excess over threshold is allowed if still valid/sorted).
