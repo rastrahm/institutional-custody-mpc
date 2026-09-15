@@ -8,13 +8,15 @@ import {ReentrancyGuardTransient} from "@openzeppelin/contracts/utils/Reentrancy
 import {CustodyErrors} from "./errors/CustodyErrors.sol";
 import {ICustodyVault} from "./interfaces/ICustodyVault.sol";
 import {IERC1271} from "./interfaces/IERC1271.sol";
+import {IGuard} from "./interfaces/IGuard.sol";
 import {EIP712Custody} from "./libraries/EIP712Custody.sol";
 import {SpendingLimit} from "./libraries/SpendingLimit.sol";
 import {ThresholdSignature} from "./libraries/ThresholdSignature.sol";
 
-/// @notice Institutional M-of-N custody vault with EIP-712, ERC-1271 and daily spending limits.
+/// @notice Institutional M-of-N custody vault with EIP-712, ERC-1271, daily limits and pluggable guards.
 /// @dev Under-limit path: any single owner signature; only `value` (ETH) counts toward the daily cap.
 ///      Full quorum `execTransaction` bypasses the daily cap (governance override).
+///      `setGuard` is only callable by the vault itself (via multisig `execTransaction`).
 contract CustodyVault is ICustodyVault, IERC1271, EIP712, ReentrancyGuardTransient {
     using SpendingLimit for SpendingLimit.Data;
 
@@ -22,6 +24,8 @@ contract CustodyVault is ICustodyVault, IERC1271, EIP712, ReentrancyGuardTransie
     bytes4 internal constant ERC1271_MAGICVALUE = 0x1626ba7e;
     /// @dev ERC-1271 invalid marker returned instead of reverting (dApp compatibility).
     bytes4 internal constant ERC1271_INVALID = 0xffffffff;
+    /// @dev Call operation discriminator passed to guards (DelegateCall reserved).
+    uint8 internal constant OPERATION_CALL = 0;
 
     /// @notice Emitted after a successful external call authorized by threshold signatures.
     event ExecutionSuccess(bytes32 indexed txHash, address indexed to, uint256 value);
@@ -32,12 +36,16 @@ contract CustodyVault is ICustodyVault, IERC1271, EIP712, ReentrancyGuardTransie
     /// @notice Emitted when spend is recorded against the daily window.
     event DailySpendRecorded(uint256 amount, uint256 spentInWindow, uint256 windowStart);
 
+    /// @notice Emitted when the active guard module changes.
+    event GuardChanged(address indexed previousGuard, address indexed newGuard);
+
     mapping(address => bool) private _isOwner;
     address[] private _owners;
 
     uint256 private _threshold;
     uint256 private _nonce;
     SpendingLimit.Data private _spending;
+    address private _guard;
 
     /// @notice Deploys a vault with an initial owner set, threshold and daily ETH spending limit.
     /// @param owners_ Initial signers (unique, non-zero).
@@ -119,6 +127,22 @@ contract CustodyVault is ICustodyVault, IERC1271, EIP712, ReentrancyGuardTransie
         return _spending.remaining();
     }
 
+    /// @notice Current guard module (`address(0)` if none).
+    function guard() external view returns (address) {
+        return _guard;
+    }
+
+    /// @notice Sets or clears the execution guard. Only callable by this vault (multisig self-call).
+    /// @param guard_ New guard address, or zero to disable.
+    function setGuard(address guard_) external {
+        if (msg.sender != address(this)) {
+            revert CustodyErrors.Unauthorized();
+        }
+        address previous = _guard;
+        _guard = guard_;
+        emit GuardChanged(previous, guard_);
+    }
+
     /// @inheritdoc ICustodyVault
     /// @dev Returns the EIP-712 digest that owners must sign (same value used by `vm.sign` / eth_signTypedDataV4).
     function getTransactionHash(address to, uint256 value, bytes memory data, uint256 nonce_)
@@ -145,6 +169,9 @@ contract CustodyVault is ICustodyVault, IERC1271, EIP712, ReentrancyGuardTransie
 
         ThresholdSignature.validateThreshold(txHash, signatures, _threshold, _isOwner);
 
+        address guard_ = _guard;
+        _guardCheckTransaction(guard_, to, value, data);
+
         // Effects
         unchecked {
             _nonce = currentNonce + 1;
@@ -157,6 +184,8 @@ contract CustodyVault is ICustodyVault, IERC1271, EIP712, ReentrancyGuardTransie
         } else {
             emit ExecutionFailure(txHash, to, value);
         }
+
+        _guardCheckAfterExecution(guard_, txHash, success);
     }
 
     /// @inheritdoc ICustodyVault
@@ -184,6 +213,9 @@ contract CustodyVault is ICustodyVault, IERC1271, EIP712, ReentrancyGuardTransie
 
         _spending.checkCanSpend(value);
 
+        address guard_ = _guard;
+        _guardCheckTransaction(guard_, to, value, data);
+
         // Effects
         unchecked {
             _nonce = currentNonce + 1;
@@ -198,6 +230,8 @@ contract CustodyVault is ICustodyVault, IERC1271, EIP712, ReentrancyGuardTransie
         } else {
             emit ExecutionFailure(txHash, to, value);
         }
+
+        _guardCheckAfterExecution(guard_, txHash, success);
     }
 
     /// @inheritdoc IERC1271
@@ -208,5 +242,25 @@ contract CustodyVault is ICustodyVault, IERC1271, EIP712, ReentrancyGuardTransie
             return ERC1271_MAGICVALUE;
         }
         return ERC1271_INVALID;
+    }
+
+    function _guardCheckTransaction(address guard_, address to, uint256 value, bytes memory data) private {
+        if (guard_ == address(0)) {
+            return;
+        }
+        try IGuard(guard_).checkTransaction(to, value, data, OPERATION_CALL, msg.sender) {}
+        catch {
+            revert CustodyErrors.GuardRejected();
+        }
+    }
+
+    function _guardCheckAfterExecution(address guard_, bytes32 txHash, bool success) private {
+        if (guard_ == address(0)) {
+            return;
+        }
+        try IGuard(guard_).checkAfterExecution(txHash, success) {}
+        catch {
+            revert CustodyErrors.GuardRejected();
+        }
     }
 }
