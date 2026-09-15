@@ -7,6 +7,6 @@
 | [diagrama-de-flujo.md](./diagrama-de-flujo.md) | Decisiones por función |
 | [flujograma.md](./flujograma.md) | Ciclo e2e propuesta → ejecución → límites → recovery |
 
-**Sync docs:** 2026-09-15 · planificación inicial · código aún no iniciado.
+**Sync docs:** 2026-09-15 · Fase BOOT ✅ · `forge test` → **3 PASS**.
 
-README del módulo: [`../README.md`](../README.md) (se creará en Fase BOOT).
+README del módulo: [`../README.md`](../README.md)
