@@ -1,9 +1,9 @@
 # Planificación — Módulo 20: Institutional Custody, Multisig & MPC Integration
 
-**Estado:** Fases **BOOT → SOLV** ⏳ (pendientes).  
+**Estado:** Fase **BOOT** ✅ · **THRESH → SOLV** ⏳.  
 **Regla de avance:** no se escribe código de una fase hasta: *“Autorizo Fase \<ID\>”*.  
-**Suite:** aún no hay tests.  
-**Docs sync:** 2026-09-15 — diagramas y planificación de diseño objetivo.  
+**Suite:** `forge test` → **3 PASS** (smoke BOOT).  
+**Docs sync:** 2026-09-15 — scaffold Foundry + interfaces base.  
 **Nota de diseño:** las fases se organizan por **dominios de custody institucional** (no esquema genérico 0–7).
 
 ---
@@ -179,7 +179,7 @@ error Unauthorized();
 
 | Fase | Nombre | Estado | Autorización |
 |------|--------|--------|--------------|
-| **BOOT** | Scaffold Foundry + errores + interfaces base | ⏳ Pendiente | ❌ No autorizada |
+| **BOOT** | Scaffold Foundry + errores + interfaces base | ✅ Completada | ✅ Autorizada |
 | **THRESH** | Vault EIP-712 + motor M-of-N + sorting | ⏳ Pendiente | ❌ No autorizada |
 | **ERC1271** | `isValidSignature` + tests integración dApp-like | ⏳ Pendiente | ❌ No autorizada |
 | **SPEND** | Daily spending limit + reset por ventana | ⏳ Pendiente | ❌ No autorizada |
@@ -188,13 +188,13 @@ error Unauthorized();
 | **SOLV** | Fuzz spending + invariantes + Deploy/gas + SWC-AUDIT | ⏳ Pendiente | ❌ No autorizada |
 
 **Cómo autorizar:** escribir exactamente  
-`Autorizo Fase BOOT` (o THRESH / ERC1271 / SPEND / GUARD / LOCK / SOLV).
+`Autorizo Fase THRESH` (o ERC1271 / SPEND / GUARD / LOCK / SOLV).
 
 ---
 
 ## 7. Detalle por fase
 
-### Fase BOOT — Scaffold Foundry + base ⏳
+### Fase BOOT — Scaffold Foundry + base ✅
 
 **Objetivo:** repo Foundry compilable con layout, deps OZ, errores e interfaces.
 
@@ -207,6 +207,14 @@ error Unauthorized();
 **Criterio de salida:** `forge build` verde; árbol de carpetas alineado a §4.
 
 **Depende de:** nada (primera fase de código).
+
+**Hecho (2026-09-15):**
+- `foundry.toml` (solc `0.8.24`, Cancun, optimizer `10_000`, `via_ir`, fuzz `runs = 1000`).
+- `remappings.txt`; deps en `lib/` (forge-std, OpenZeppelin **v5.2.0**, copiadas del módulo 19).
+- `CustodyErrors.sol` + interfaces `ICustodyVault`, `IERC1271`, `IGuard`, `IRecoveryTimelock`.
+- Stub `script/Deploy.s.sol`, `.env.example`, `README.md`.
+- Smoke: `test/BootScaffold.t.sol`.
+- **`forge test` → 3 PASS**.
 
 ---
 
@@ -301,7 +309,7 @@ error Unauthorized();
 
 ## 8. Checklist de aceptación global (v1)
 
-- [ ] Scaffold Foundry + solc `0.8.24` (Fase BOOT)
+- [x] Scaffold Foundry + solc `0.8.24` (Fase BOOT)
 - [ ] Ejecución M-of-N sobre EIP-712 con sorting anti-duplicado
 - [ ] `InvalidThresholdSignature` / unsorted / duplicate cubiertos por tests
 - [ ] ERC-1271 `isValidSignature` operativo
@@ -316,4 +324,4 @@ error Unauthorized();
 
 ## 9. Próximo paso
 
-Esperando autorización explícita: **`Autorizo Fase BOOT`**.
+Esperando autorización explícita: **`Autorizo Fase THRESH`**.
