@@ -39,6 +39,18 @@ contract CustodyVault is ICustodyVault, IERC1271, EIP712, ReentrancyGuardTransie
     /// @notice Emitted when the active guard module changes.
     event GuardChanged(address indexed previousGuard, address indexed newGuard);
 
+    /// @notice Emitted when the recovery timelock is bound (once).
+    event RecoveryTimelockSet(address indexed timelock);
+
+    /// @notice Emitted when an owner is added via the recovery timelock.
+    event OwnerAdded(address indexed owner, uint256 newThreshold);
+
+    /// @notice Emitted when an owner is removed via the recovery timelock.
+    event OwnerRemoved(address indexed owner, uint256 newThreshold);
+
+    /// @notice Emitted when the threshold is changed via the recovery timelock.
+    event ThresholdChanged(uint256 newThreshold);
+
     mapping(address => bool) private _isOwner;
     address[] private _owners;
 
@@ -46,12 +58,16 @@ contract CustodyVault is ICustodyVault, IERC1271, EIP712, ReentrancyGuardTransie
     uint256 private _nonce;
     SpendingLimit.Data private _spending;
     address private _guard;
+    address private _recoveryTimelock;
 
     /// @notice Deploys a vault with an initial owner set, threshold and daily ETH spending limit.
     /// @param owners_ Initial signers (unique, non-zero).
     /// @param threshold_ Required M for quorum (`1 <= M <= N`).
     /// @param dailyLimit_ Max ETH (`value`) spendable via `execTransactionUnderLimit` per window.
-    constructor(address[] memory owners_, uint256 threshold_, uint256 dailyLimit_) EIP712("CustodyVault", "1") {
+    /// @param recoveryTimelock_ Optional pre-bound timelock (`address(0)` to set later via self-call).
+    constructor(address[] memory owners_, uint256 threshold_, uint256 dailyLimit_, address recoveryTimelock_)
+        EIP712("CustodyVault", "1")
+    {
         uint256 length = owners_.length;
         if (length == 0) {
             revert CustodyErrors.ZeroAddress();
@@ -77,6 +93,7 @@ contract CustodyVault is ICustodyVault, IERC1271, EIP712, ReentrancyGuardTransie
 
         _threshold = threshold_;
         _spending.dailyLimit = dailyLimit_;
+        _recoveryTimelock = recoveryTimelock_;
     }
 
     /// @notice Accepts ETH deposits for custody.
@@ -132,6 +149,11 @@ contract CustodyVault is ICustodyVault, IERC1271, EIP712, ReentrancyGuardTransie
         return _guard;
     }
 
+    /// @notice Bound recovery timelock (`address(0)` if not set).
+    function recoveryTimelock() external view returns (address) {
+        return _recoveryTimelock;
+    }
+
     /// @notice Sets or clears the execution guard. Only callable by this vault (multisig self-call).
     /// @param guard_ New guard address, or zero to disable.
     function setGuard(address guard_) external {
@@ -141,6 +163,70 @@ contract CustodyVault is ICustodyVault, IERC1271, EIP712, ReentrancyGuardTransie
         address previous = _guard;
         _guard = guard_;
         emit GuardChanged(previous, guard_);
+    }
+
+    /// @notice Binds the recovery timelock once. Only callable by this vault (multisig self-call).
+    /// @param timelock_ Timelock contract address.
+    function setRecoveryTimelock(address timelock_) external {
+        if (msg.sender != address(this)) {
+            revert CustodyErrors.Unauthorized();
+        }
+        if (timelock_ == address(0)) {
+            revert CustodyErrors.ZeroAddress();
+        }
+        if (_recoveryTimelock != address(0)) {
+            revert CustodyErrors.Unauthorized();
+        }
+        _recoveryTimelock = timelock_;
+        emit RecoveryTimelockSet(timelock_);
+    }
+
+    /// @notice Adds an owner and sets the new threshold. Only callable by the recovery timelock.
+    /// @param owner Owner to add.
+    /// @param newThreshold Threshold after the addition (`1 <= newThreshold <= owners.length`).
+    function addOwnerWithThreshold(address owner, uint256 newThreshold) external {
+        _onlyRecoveryTimelock();
+        if (owner == address(0)) {
+            revert CustodyErrors.ZeroAddress();
+        }
+        if (_isOwner[owner]) {
+            revert CustodyErrors.SignerAlreadyExists();
+        }
+        _isOwner[owner] = true;
+        _owners.push(owner);
+        _setThreshold(newThreshold);
+        emit OwnerAdded(owner, newThreshold);
+    }
+
+    /// @notice Removes an owner and sets the new threshold. Only callable by the recovery timelock.
+    /// @param owner Owner to remove.
+    /// @param newThreshold Threshold after the removal.
+    function removeOwnerWithThreshold(address owner, uint256 newThreshold) external {
+        _onlyRecoveryTimelock();
+        if (!_isOwner[owner]) {
+            revert CustodyErrors.SignerDoesNotExist();
+        }
+        _isOwner[owner] = false;
+
+        uint256 length = _owners.length;
+        for (uint256 i; i < length; ++i) {
+            if (_owners[i] == owner) {
+                _owners[i] = _owners[length - 1];
+                _owners.pop();
+                break;
+            }
+        }
+
+        _setThreshold(newThreshold);
+        emit OwnerRemoved(owner, newThreshold);
+    }
+
+    /// @notice Updates the signature threshold. Only callable by the recovery timelock.
+    /// @param newThreshold New M (`1 <= newThreshold <= owners.length`).
+    function changeThreshold(uint256 newThreshold) external {
+        _onlyRecoveryTimelock();
+        _setThreshold(newThreshold);
+        emit ThresholdChanged(newThreshold);
     }
 
     /// @inheritdoc ICustodyVault
@@ -262,5 +348,21 @@ contract CustodyVault is ICustodyVault, IERC1271, EIP712, ReentrancyGuardTransie
         catch {
             revert CustodyErrors.GuardRejected();
         }
+    }
+
+    function _onlyRecoveryTimelock() private view {
+        if (msg.sender != _recoveryTimelock || _recoveryTimelock == address(0)) {
+            revert CustodyErrors.Unauthorized();
+        }
+    }
+
+    function _setThreshold(uint256 newThreshold) private {
+        if (newThreshold == 0) {
+            revert CustodyErrors.ThresholdTooLow();
+        }
+        if (newThreshold > _owners.length) {
+            revert CustodyErrors.ThresholdTooHigh();
+        }
+        _threshold = newThreshold;
     }
 }

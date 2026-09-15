@@ -31,7 +31,7 @@ abstract contract CustodyTestBase is Test {
 
         // Ensure ascending address order for deterministic packing helpers when needed.
         address[] memory owners = _sortedOwners3();
-        vault = new CustodyVault(owners, 2, DEFAULT_DAILY_LIMIT);
+        vault = new CustodyVault(owners, 2, DEFAULT_DAILY_LIMIT, address(0));
         target = new MockTarget();
         vm.deal(address(vault), 10 ether);
     }
