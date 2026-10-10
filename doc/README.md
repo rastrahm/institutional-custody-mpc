@@ -1,14 +1,17 @@
-# Documentación — Módulo 20: Institutional Custody, Multisig & MPC Integration
+# Documentation / Documentación — Module 20
 
-| Archivo | Contenido |
-|---------|-----------|
-| [planificacion.md](./planificacion.md) | Fases BOOT→SOLV ✅ (módulo v1 cerrado) |
-| [diagrama-de-clases.md](./diagrama-de-clases.md) | UML Mermaid (API real) |
-| [diagrama-de-flujo.md](./diagrama-de-flujo.md) | Decisiones por función |
-| [flujograma.md](./flujograma.md) | Ciclo e2e propuesta → ejecución → límites → recovery |
-| [SWC-AUDIT.md](./SWC-AUDIT.md) | Matriz SWC-100–136 (estilo módulo 19) |
-| [GAS.md](./GAS.md) | Baseline gas + optimizaciones |
+Every document is available in English (`-EN.md`) and Spanish (`-ES.md`).  
+Cada documento está disponible en inglés (`-EN.md`) y español (`-ES.md`).
 
-**Sync docs:** 2026-09-15 · v1 cerrado · diagramas alineados al código · `forge test` → **69 PASS**.
+| Document / Documento | English | Español |
+|----------------------|---------|---------|
+| Documentation index / Índice | [README-EN.md](./README-EN.md) | [README-ES.md](./README-ES.md) |
+| Planning / Planificación | [planificacion-EN.md](./planificacion-EN.md) | [planificacion-ES.md](./planificacion-ES.md) |
+| Understanding guide / Guía de comprensión | [COMPRENSION-EN.md](./COMPRENSION-EN.md) | [COMPRENSION-ES.md](./COMPRENSION-ES.md) |
+| Class diagram / Diagrama de clases | [diagrama-de-clases-EN.md](./diagrama-de-clases-EN.md) | [diagrama-de-clases-ES.md](./diagrama-de-clases-ES.md) |
+| Flow diagram / Diagrama de flujo | [diagrama-de-flujo-EN.md](./diagrama-de-flujo-EN.md) | [diagrama-de-flujo-ES.md](./diagrama-de-flujo-ES.md) |
+| Flowchart / Flujograma | [flujograma-EN.md](./flujograma-EN.md) | [flujograma-ES.md](./flujograma-ES.md) |
+| SWC audit / Auditoría SWC | [SWC-AUDIT-EN.md](./SWC-AUDIT-EN.md) | [SWC-AUDIT-ES.md](./SWC-AUDIT-ES.md) |
+| Gas optimization / Optimización de gas | [GAS-EN.md](./GAS-EN.md) | [GAS-ES.md](./GAS-ES.md) |
 
-README del módulo: [`../README.md`](../README.md)
+Portfolio: [`../portfolio/index.html`](../portfolio/index.html) · Module README: [`../README.md`](../README.md)

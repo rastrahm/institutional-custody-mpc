@@ -72,4 +72,4 @@ forge snapshot --match-contract CustodyVaultGasTest
 - [`foundry.toml`](../foundry.toml)
 - [`test/gas/CustodyVault.gas.t.sol`](../test/gas/CustodyVault.gas.t.sol)
 - [`.gas-snapshot`](../.gas-snapshot)
-- [SWC-AUDIT.md](./SWC-AUDIT.md)
+- [SWC-AUDIT-ES.md](./SWC-AUDIT-ES.md)

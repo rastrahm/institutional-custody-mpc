@@ -1,6 +1,6 @@
 # Auditoría SWC — Institutional Custody, Multisig & MPC Integration
 
-Verificación del vault de custodia institucional (módulo 20) contra el [SWC Registry](https://swcregistry.io/) (EIP-1470). Estilo alineado a [`19-rwa-tokenization/doc/SWC-AUDIT.md`](../../19-rwa-tokenization/doc/SWC-AUDIT.md) y [`18-liquid-staking-protocol/doc/SWC-AUDIT.md`](../../18-liquid-staking-protocol/doc/SWC-AUDIT.md).
+Verificación del vault de custodia institucional (módulo 20) contra el [SWC Registry](https://swcregistry.io/) (EIP-1470). Estilo alineado a [`19-rwa-tokenization/doc/SWC-AUDIT-ES.md`](../../19-rwa-tokenization/doc/SWC-AUDIT-ES.md) y [`18-liquid-staking-protocol/doc/SWC-AUDIT-ES.md`](../../18-liquid-staking-protocol/doc/SWC-AUDIT-ES.md).
 
 > **Nota:** El SWC Registry no se mantiene activamente desde ~2020. Complementar con [SCSVS](https://github.com/ComposableSecurity/SCSVS) y [EEA EthTrust](https://entethalliance.org/specs/ethtrust/).
 
@@ -21,7 +21,7 @@ Verificación del vault de custodia institucional (módulo 20) contra el [SWC Re
 **Mocks (fuera de prod):** `MockTarget`, `MockGuard`  
 **Fecha:** 2026-09-15 (Fase SOLV / cierre v1)  
 **Referencia tests:** `test/ThresholdExecution.t.sol`, `test/SignatureSorting.t.sol`, `test/ERC1271.t.sol`, `test/SpendingLimit.t.sol`, `test/Guard.t.sol`, `test/RecoveryTimelock.t.sol`, `test/fuzz/SpendingWindow.t.sol`, `test/invariant/Custody.invariant.t.sol`, `test/gas/CustodyVault.gas.t.sol`  
-**Índice:** [`README.md`](./README.md) · README módulo: [`../README.md`](../README.md)
+**Índice:** [`README-ES.md`](./README-ES.md) · README módulo: [`../README-ES.md`](../README-ES.md)
 
 ---
 
@@ -162,5 +162,5 @@ Verificación del vault de custodia institucional (módulo 20) contra el [SWC Re
 - [SWC Registry](https://swcregistry.io/)
 - [EIP-1470](https://eips.ethereum.org/EIPS/eip-1470)
 - [EIP-712](https://eips.ethereum.org/EIPS/eip-712) · [ERC-1271](https://eips.ethereum.org/EIPS/eip-1271)
-- [`19-rwa-tokenization/doc/SWC-AUDIT.md`](../../19-rwa-tokenization/doc/SWC-AUDIT.md)
-- [`18-liquid-staking-protocol/doc/SWC-AUDIT.md`](../../18-liquid-staking-protocol/doc/SWC-AUDIT.md)
+- [`19-rwa-tokenization/doc/SWC-AUDIT-ES.md`](../../19-rwa-tokenization/doc/SWC-AUDIT-ES.md)
+- [`18-liquid-staking-protocol/doc/SWC-AUDIT-ES.md`](../../18-liquid-staking-protocol/doc/SWC-AUDIT-ES.md)

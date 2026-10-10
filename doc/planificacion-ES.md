@@ -71,21 +71,27 @@ Stack: **Foundry + Solidity `0.8.24`**. Frontend Next.js queda **fuera de alcanc
 
 ```
 20-institutional-custody-mpc/
-├── README.md
+├── README.md               # índice ES/EN
+├── README-ES.md / README-EN.md
 ├── .cursorrules
 ├── .gitignore
 ├── .env.example
 ├── .gas-snapshot
 ├── foundry.toml
 ├── remappings.txt
-├── doc/
-│   ├── README.md
-│   ├── planificacion.md
-│   ├── diagrama-de-clases.md
-│   ├── diagrama-de-flujo.md
-│   ├── flujograma.md
-│   ├── SWC-AUDIT.md
-│   └── GAS.md
+├── doc/                    # cada documento en -ES.md y -EN.md
+│   ├── README.md           # índice ES/EN
+│   ├── README-ES/EN.md
+│   ├── planificacion-ES/EN.md
+│   ├── COMPRENSION-ES/EN.md
+│   ├── diagrama-de-clases-ES/EN.md
+│   ├── diagrama-de-flujo-ES/EN.md
+│   ├── flujograma-ES/EN.md
+│   ├── SWC-AUDIT-ES/EN.md
+│   └── GAS-ES/EN.md
+├── portfolio/
+│   ├── index.html
+│   └── i18n.js
 ├── src/
 │   ├── CustodyVault.sol
 │   ├── RecoveryTimelock.sol
@@ -335,7 +341,7 @@ error Unauthorized();
 1. Fuzz spending across timestamp boundaries (requisito `.cursorrules`).
 2. Invariantes: threshold ≤ owners; spent ≤ limit por ventana; nonce monotónico.
 3. `Deploy.s.sol`, NatSpec completo, gas snapshot.
-4. `doc/SWC-AUDIT.md` + `doc/GAS.md` + sync de diagramas si hubo desviaciones.
+4. `doc/SWC-AUDIT-ES.md` + `doc/GAS-ES.md` + sync de diagramas si hubo desviaciones.
 5. Marcar fases ✅ en este documento.
 
 **Criterio de salida:** `forge test` (unit + fuzz + invariant) verde; deploy local OK.
@@ -346,7 +352,7 @@ error Unauthorized();
 - Invariantes: `test/invariant/Custody.invariant.t.sol` + `CustodyHandler` (threshold, spent, nonce).
 - Gas: `test/gas/CustodyVault.gas.t.sol` + `.gas-snapshot`.
 - Optimización: `ThresholdSignature` parse `r,s,v` in-place (assembly) → ≈−24 % en exec exact threshold.
-- `doc/SWC-AUDIT.md` (matriz SWC-100–136, estilo módulo 19), `doc/GAS.md`.
+- `doc/SWC-AUDIT-ES.md` (matriz SWC-100–136, estilo módulo 19), `doc/GAS-ES.md`.
 - Fuzz spending ya en SPEND; Deploy cablea vault + timelock.
 - **`forge test` → 69 PASS**.
 
@@ -363,7 +369,7 @@ error Unauthorized();
 - [x] Timelock para cambios de signers/threshold
 - [x] CEI + custom errors + NatSpec + `.call` para ETH
 - [x] Frontend Next.js **no** incluido (post-v1)
-- [x] `doc/SWC-AUDIT.md` + gas snapshot + `Deploy.s.sol`
+- [x] `doc/SWC-AUDIT-ES.md` + gas snapshot + `Deploy.s.sol`
 
 ---
 
