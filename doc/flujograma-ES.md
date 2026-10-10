@@ -122,8 +122,8 @@ flowchart TD
 
 | Documento | Contenido |
 |-----------|-----------|
-| [diagrama-de-clases.md](./diagrama-de-clases.md) | Contratos, interfaces, librerías (API real) |
-| [diagrama-de-flujo.md](./diagrama-de-flujo.md) | Decisiones internas por función |
-| [planificacion.md](./planificacion.md) | Fases BOOT→SOLV cerradas |
-| [SWC-AUDIT.md](./SWC-AUDIT.md) | Matriz SWC-100–136 |
-| [GAS.md](./GAS.md) | Baseline gas |
+| [diagrama-de-clases-ES.md](./diagrama-de-clases-ES.md) | Contratos, interfaces, librerías (API real) |
+| [diagrama-de-flujo-ES.md](./diagrama-de-flujo-ES.md) | Decisiones internas por función |
+| [planificacion-ES.md](./planificacion-ES.md) | Fases BOOT→SOLV cerradas |
+| [SWC-AUDIT-ES.md](./SWC-AUDIT-ES.md) | Matriz SWC-100–136 |
+| [GAS-ES.md](./GAS-ES.md) | Baseline gas |
